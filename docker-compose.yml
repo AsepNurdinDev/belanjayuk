@@ -1,0 +1,124 @@
+# =============================================================
+# docker-compose.yml — Infrastructure Only
+# Postgres, Redis, RabbitMQ, MongoDB
+#
+# Cara pakai:
+#   docker compose up -d                  # semua infra
+#   docker compose up postgres redis -d   # pilih service
+#   docker compose down                   # stop semua
+#   docker compose down -v                # stop + hapus volume
+# =============================================================
+
+name: belanjayuk
+
+services:
+
+  # -----------------------------------------------------------
+  # PostgreSQL — primary database semua Go services
+  # Setiap service punya database sendiri (db isolation)
+  # -----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: belanjayuk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres                         # default db, bukan dipakai service
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Redis — session, cache, refresh token, cart
+  # -----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: belanjayuk-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis} --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # RabbitMQ — message broker untuk event antar service
+  # Management UI: http://localhost:15672
+  # Default: guest / guest
+  # -----------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: belanjayuk-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"       # AMQP
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # MongoDB — analytics service (event logs, reporting)
+  # -----------------------------------------------------------
+  mongodb:
+    image: mongo:7
+    container_name: belanjayuk-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-mongo}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo}
+      MONGO_INITDB_DATABASE: analytics_db
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - belanjayuk-net
+
+# =============================================================
+# Volumes — persistent data, tidak hilang saat container restart
+# =============================================================
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  mongodb_data:
+
+# =============================================================
+# Networks — semua service dalam 1 network internal
+# =============================================================
+networks:
+  belanjayuk-net:
+    driver: bridge

@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+*.env
+!.env.example
+
+# Docker
+docker-compose*.yml
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+**/node_modules/
+**/.next/
+
+# Docs
+README.md
+docs/

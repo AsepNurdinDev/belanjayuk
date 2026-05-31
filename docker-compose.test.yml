@@ -1,0 +1,106 @@
+# =============================================================
+# docker-compose.test.yml — Integration Test Environment
+# Database terpisah dari dev, otomatis bersih setiap test run
+#
+# Cara pakai:
+#   docker compose -f docker-compose.test.yml up -d
+#   go test ./... -tags=integration
+#   docker compose -f docker-compose.test.yml down -v   ← wajib -v agar bersih
+#
+# Atau via Makefile:
+#   make test-integration
+# =============================================================
+
+name: belanjayuk-test
+
+services:
+
+  # -----------------------------------------------------------
+  # PostgreSQL Test — port berbeda agar tidak bentrok dengan dev
+  # -----------------------------------------------------------
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: belanjayuk-postgres-test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_test
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"   # port 5433 agar tidak bentrok dev (5432)
+    volumes:
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # Tidak pakai named volume → data hilang saat down -v (ini yang kita mau)
+    tmpfs:
+      - /var/lib/postgresql/data   # simpan di memory, lebih cepat untuk test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - belanjayuk-test-net
+
+  # -----------------------------------------------------------
+  # Redis Test — port berbeda
+  # -----------------------------------------------------------
+  redis-test:
+    image: redis:7-alpine
+    container_name: belanjayuk-redis-test
+    command: redis-server --requirepass redis_test
+    ports:
+      - "6380:6379"   # port 6380 agar tidak bentrok dev (6379)
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_test", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - belanjayuk-test-net
+
+  # -----------------------------------------------------------
+  # RabbitMQ Test — port berbeda
+  # -----------------------------------------------------------
+  rabbitmq-test:
+    image: rabbitmq:3.13-alpine
+    container_name: belanjayuk-rabbitmq-test
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest_test
+    ports:
+      - "5673:5672"   # port 5673 agar tidak bentrok dev (5672)
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - belanjayuk-test-net
+
+  # -----------------------------------------------------------
+  # MongoDB Test — port berbeda
+  # -----------------------------------------------------------
+  mongodb-test:
+    image: mongo:7
+    container_name: belanjayuk-mongodb-test
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo_test
+    ports:
+      - "27018:27017"  # port 27018 agar tidak bentrok dev (27017)
+    tmpfs:
+      - /data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - belanjayuk-test-net
+
+networks:
+  belanjayuk-test-net:
+    driver: bridge

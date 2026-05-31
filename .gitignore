@@ -1,0 +1,25 @@
+.env
+*.env
+!.env.example
+
+# Go
+*/vendor/
+*/tmp/
+**/bin/
+**/*.exe
+
+# Air (hot reload)
+**/tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Node
+**/node_modules/
+**/.next/
+
+# OS
+.DS_Store
+Thumbs.db

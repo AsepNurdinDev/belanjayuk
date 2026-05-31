@@ -1,0 +1,248 @@
+# =============================================================
+# docker-compose.dev.yml — Go Services (Development)
+# Hot-reload via Air, extends infrastruktur dari docker-compose.yml
+#
+# Cara pakai:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up auth-service -d
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f auth-service
+# =============================================================
+
+name: belanjayuk
+
+services:
+
+  # -----------------------------------------------------------
+  # Gateway Service — :8000
+  # -----------------------------------------------------------
+  gateway-service:
+    build:
+      context: ./services/gateway-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./services/gateway-service/.env
+    volumes:
+      - ./services/gateway-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Auth Service — :8001
+  # -----------------------------------------------------------
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-auth
+    restart: unless-stopped
+    ports:
+      - "8001:8001"   # HTTP
+      - "9001:9001"   # gRPC
+    env_file:
+      - ./services/auth-service/.env
+    volumes:
+      - ./services/auth-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Product Service — :8002
+  # -----------------------------------------------------------
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-product
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+      - "9002:9002"
+    env_file:
+      - ./services/product-service/.env
+    volumes:
+      - ./services/product-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Cart Service — :8003
+  # -----------------------------------------------------------
+  cart-service:
+    build:
+      context: ./services/cart-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-cart
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+      - "9003:9003"
+    env_file:
+      - ./services/cart-service/.env
+    volumes:
+      - ./services/cart-service:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Order Service — :8004
+  # -----------------------------------------------------------
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-order
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+      - "9004:9004"
+    env_file:
+      - ./services/order-service/.env
+    volumes:
+      - ./services/order-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Payment Service — :8005
+  # -----------------------------------------------------------
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-payment
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+      - "9005:9005"
+    env_file:
+      - ./services/payment-service/.env
+    volumes:
+      - ./services/payment-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Inventory Service — :8006
+  # -----------------------------------------------------------
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-inventory
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+      - "9006:9006"
+    env_file:
+      - ./services/inventory-service/.env
+    volumes:
+      - ./services/inventory-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Shipping Service — :8007
+  # -----------------------------------------------------------
+  shipping-service:
+    build:
+      context: ./services/shipping-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-shipping
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+      - "9007:9007"
+    env_file:
+      - ./services/shipping-service/.env
+    volumes:
+      - ./services/shipping-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Notification Service — :8008
+  # -----------------------------------------------------------
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-notification
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    env_file:
+      - ./services/notification-service/.env
+    volumes:
+      - ./services/notification-service:/app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+  # -----------------------------------------------------------
+  # Analytics Service — :8009
+  # -----------------------------------------------------------
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile.dev
+    container_name: belanjayuk-analytics
+    restart: unless-stopped
+    ports:
+      - "8009:8009"
+    env_file:
+      - ./services/analytics-service/.env
+    volumes:
+      - ./services/analytics-service:/app
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - belanjayuk-net
+
+networks:
+  belanjayuk-net:
+    external: true   # pakai network yang sudah dibuat docker-compose.yml
