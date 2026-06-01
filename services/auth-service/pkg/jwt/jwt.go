@@ -174,3 +174,5 @@ func (m *Manager) ExtractJTI(tokenStr string) (string, error) {
 
 	return claims.ID, nil
 }
+
+func (m *Manager) RefreshExpires() time.Duration { return m.refreshExpires }

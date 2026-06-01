@@ -132,10 +132,12 @@ type TokenPair struct {
 
 // =============================================================
 // Claims — payload JWT access token
+// ExpiresAt diperlukan untuk menghitung TTL blacklist secara dinamis
 // =============================================================
 
 type Claims struct {
-	UserID string   `json:"user_id"`
-	Email  string   `json:"email"`
-	Role   UserRole `json:"role"`
+	UserID    string    `json:"user_id"`
+	Email     string    `json:"email"`
+	Role      UserRole  `json:"role"`
+	ExpiresAt time.Time `json:"expires_at"` // dari JWT "exp" claim
 }

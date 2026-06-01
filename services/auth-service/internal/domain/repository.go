@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -29,21 +30,26 @@ type UserRepository interface {
 	GetAddressesByUserID(ctx context.Context, userID uuid.UUID) ([]*UserAddress, error)
 	UpdateAddress(ctx context.Context, address *UserAddress) error
 	DeleteAddress(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
-	UnsetDefaultAddress(ctx context.Context, userID uuid.UUID) error // unset semua sebelum set default baru
+	UnsetDefaultAddress(ctx context.Context, userID uuid.UUID) error
 }
 
 // =============================================================
-// TokenRepository — kontrak ke Redis & Postgres
+// TokenRepository — kontrak ke Redis
 // =============================================================
 
 type TokenRepository interface {
-	// Refresh token di Postgres (audit trail)
+	// Refresh token (Redis sebagai primary store)
 	SaveRefreshToken(ctx context.Context, token *RefreshToken) error
 	GetRefreshToken(ctx context.Context, tokenHash string) (*RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
-	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error // untuk logout semua device
+	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
 
-	// Blacklist access token di Redis (saat logout, token belum expired)
+	// Access token blacklist
 	BlacklistAccessToken(ctx context.Context, tokenHash string, claims *Claims) error
 	IsAccessTokenBlacklisted(ctx context.Context, tokenHash string) (bool, error)
+
+	// Rate limiting (digunakan middleware via RedisRateLimiter, bukan langsung tokenRepo)
+	IncrRateLimit(ctx context.Context, key string, window time.Duration) (int64, time.Time, error)
+	GetRateLimit(ctx context.Context, key string) (int64, error)
+	ResetRateLimit(ctx context.Context, key string) error
 }

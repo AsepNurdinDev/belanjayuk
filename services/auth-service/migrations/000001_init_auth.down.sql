@@ -1,8 +1,9 @@
 -- =============================================================
 -- Migration: 000001_init_auth (DOWN)
--- Drop dalam urutan terbalik karena ada foreign key
+-- Rollback semua tabel auth service
 -- =============================================================
 
+-- Hapus indexes dulu (otomatis terhapus dengan DROP TABLE, tapi eksplisit lebih aman)
 DROP INDEX IF EXISTS idx_refresh_tokens_expires;
 DROP INDEX IF EXISTS idx_refresh_tokens_hash;
 DROP INDEX IF EXISTS idx_refresh_tokens_user_id;
@@ -14,6 +15,7 @@ DROP INDEX IF EXISTS idx_users_role;
 DROP INDEX IF EXISTS idx_users_google_id;
 DROP INDEX IF EXISTS idx_users_email;
 
+-- Hapus tabel (urutan terbalik dari CREATE karena foreign key)
 DROP TABLE IF EXISTS "refresh_tokens";
 DROP TABLE IF EXISTS "user_addresses";
 DROP TABLE IF EXISTS "user_profiles";

@@ -2,10 +2,15 @@ package oauth
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -18,7 +23,8 @@ import (
 const googleUserInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 type GoogleClient struct {
-	config *oauth2.Config
+	config      *oauth2.Config
+	stateSecret string // secret untuk HMAC-SHA256 state verification
 }
 
 func NewGoogleClient(clientID, clientSecret, redirectURL string) *GoogleClient {
@@ -36,8 +42,14 @@ func NewGoogleClient(clientID, clientSecret, redirectURL string) *GoogleClient {
 	}
 }
 
+// WithStateSecret — set HMAC secret untuk state verification
+func (g *GoogleClient) WithStateSecret(secret string) *GoogleClient {
+	g.stateSecret = secret
+	return g
+}
+
 // =============================================================
-// GoogleUserInfo — data user dari Google
+// GoogleUserInfo — data user dari Google API
 // =============================================================
 
 type GoogleUserInfo struct {
@@ -51,11 +63,40 @@ type GoogleUserInfo struct {
 }
 
 // =============================================================
-// GetAuthURL — generate URL redirect ke Google login
-// state = random string untuk CSRF protection
+// GenerateState — buat CSRF state parameter dengan HMAC
+// Format: <timestamp>:<hmac>
 // =============================================================
 
-func (g *GoogleClient) GetAuthURL(state string) string {
+func (g *GoogleClient) GenerateState() string {
+	ts := fmt.Sprintf("%d", time.Now().Unix())
+	sig := g.signState(ts)
+	return ts + ":" + sig
+}
+
+// VerifyState — verifikasi CSRF state parameter
+func (g *GoogleClient) VerifyState(state string) error {
+	parts := strings.SplitN(state, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid state format")
+	}
+
+	ts := parts[0]
+	sig := parts[1]
+
+	expectedSig := g.signState(ts)
+	if !hmac.Equal([]byte(sig), []byte(expectedSig)) {
+		return fmt.Errorf("state signature mismatch")
+	}
+
+	return nil
+}
+
+// =============================================================
+// GetAuthURL — generate URL redirect ke Google login
+// =============================================================
+
+func (g *GoogleClient) GetAuthURL() string {
+	state := g.GenerateState()
 	return g.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 }
 
@@ -99,4 +140,18 @@ func (g *GoogleClient) GetUserInfo(ctx context.Context, token *oauth2.Token) (*G
 	}
 
 	return &userInfo, nil
+}
+
+// =============================================================
+// signState — HMAC-SHA256 signature untuk state parameter
+// =============================================================
+
+func (g *GoogleClient) signState(data string) string {
+	secret := g.stateSecret
+	if secret == "" {
+		secret = "default-insecure-secret" // hanya fallback, set OAUTH_STATE_SECRET di prod
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(data))
+	return hex.EncodeToString(mac.Sum(nil))
 }
